@@ -1,0 +1,33 @@
+IDEA.md
+
+# dependencies
+node_modules/
+.pnpm-store/
+
+# build outputs
+dist/
+build/
+*.tsbuildinfo
+.next/
+out/
+
+# env & secrets
+.env
+.env.*
+!.env.example
+*.key
+.sui/
+keys/
+
+# logs & artifacts
+*.log
+docs/artifacts/
+coverage/
+
+# os / editor
+.DS_Store
+.idea/
+.vscode/
+
+# redis dump
+dump.rdb

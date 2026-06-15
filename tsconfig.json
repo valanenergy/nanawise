@@ -1,0 +1,9 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true
+  },
+  "include": ["scripts/**/*", "packages/**/*", "apps/bot/**/*", "apps/keeper/**/*"],
+  "comment": "apps/web is a Next.js app with its own tsconfig (JSX/DOM) — typecheck it via `next build` or its own tsc.",
+  "exclude": ["node_modules", "**/dist/**", "apps/web/**"]
+}
