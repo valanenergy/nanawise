@@ -1,0 +1,22 @@
+{
+  "name": "@nanawise/keeper",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "start": "tsx src/index.ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@mysten/sui": "^2.19.0",
+    "@nanawise/db": "workspace:*",
+    "@nanawise/predict-sdk": "workspace:*",
+    "@nanawise/shared": "workspace:*",
+    "bullmq": "^5.79.0",
+    "dotenv": "^16.6.1",
+    "ioredis": "^5.11.1",
+    "zod": "^4.4.3"
+  }
+}
