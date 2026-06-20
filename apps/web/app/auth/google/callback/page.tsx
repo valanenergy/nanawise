@@ -17,8 +17,11 @@ export default function Callback() {
       try {
         const hash = new URLSearchParams(window.location.hash.slice(1));
         const jwt = hash.get('id_token');
-        const state = hash.get('state') ?? 'web';
         if (!jwt) throw new Error('No id_token returned from Google.');
+
+        // Use the state we stored in sessionStorage during sign-in, not from Google
+        const state = sessionStorage.getItem('oauth-state') ?? 'web';
+
         setStatus('Deriving your wallet…');
         await completeLogin(jwt);
         window.location.href = `/miniapp/onboard?state=${encodeURIComponent(state)}`;

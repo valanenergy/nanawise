@@ -3,10 +3,10 @@
 import { Suspense, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { beginLogin, getZkSession } from '../lib/zklogin';
+import { startOAuth } from '../lib/api';
 
 function Home() {
   const params = useSearchParams();
-  const state = params.get('state') ?? 'web';
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const session = typeof window !== 'undefined' ? getZkSession() : null;
@@ -15,6 +15,9 @@ function Home() {
     setBusy(true);
     setErr(null);
     try {
+      // Initialize OAuth state on backend and get a valid state value
+      const { state } = await startOAuth();
+      sessionStorage.setItem('oauth-state', state);
       const url = await beginLogin(state);
       window.location.href = url;
     } catch (e) {

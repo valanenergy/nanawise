@@ -85,6 +85,16 @@ export function startApiServer(deps: Deps, bot: Bot) {
 
     if (route === 'GET /health') return json(res, 200, { ok: true });
 
+    if (route === 'POST /api/oauth/start') {
+      // Initialize OAuth flow: generate a random state, store it in Redis, return to frontend.
+      // The frontend will use this state when initiating Google sign-in, Google will echo it back,
+      // and we'll use it to look up the user's telegramId in /api/onboard/complete.
+      const state = require('crypto').randomBytes(16).toString('hex');
+      const telegramId = String(Math.floor(Math.random() * 9007199254740991)); // temp ID for web users
+      await deps.sessions.putOAuthState(state, { telegramId }, 300); // 5-min TTL
+      return json(res, 200, { state });
+    }
+
     // WhatsApp (Twilio) webhook — plain-text command parity (Phase 8 Part B).
     if (route === 'POST /webhooks/whatsapp') {
       const form = await readForm(req);

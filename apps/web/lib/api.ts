@@ -29,6 +29,10 @@ export function executeSponsored(digest: string, signature: string) {
   return post<{ digest: string }>('/api/sponsor/execute', { digest, signature });
 }
 
+export function startOAuth() {
+  return post<{ state: string }>('/api/oauth/start', {});
+}
+
 export function completeOnboard(args: { state: string; jwt: string; managerId?: string }) {
   return post<{ ok: boolean; funding?: { digest?: string; skipped?: string } }>(
     '/api/onboard/complete',

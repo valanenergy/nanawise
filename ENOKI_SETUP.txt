@@ -1,0 +1,75 @@
+================================================================================
+ENOKI PORTAL SETUP - Enable Sponsored Transactions for Nanawise
+================================================================================
+
+CRITICAL: This step is required for onboarding to work.
+
+ERROR YOU'RE SEEING:
+  "API key is missing required features: SPONSORED_TRANSACTIONS"
+
+================================================================================
+STEP 1: Go to Enoki Portal
+================================================================================
+
+1. Open: https://enoki.mysten.com
+2. Log in with your credentials
+3. Find your API key (the one with this public key):
+
+   ENOKI_PUBLIC_KEY=enoki_public_bf61ffe52fa0f32d2c71e362eac7d5be
+
+================================================================================
+STEP 2: Enable SPONSORED_TRANSACTIONS Feature
+================================================================================
+
+1. Click on your API key to edit it
+2. Look for "Features" section
+3. Enable: SPONSORED_TRANSACTIONS (for testnet)
+4. Save changes
+
+================================================================================
+STEP 3: Allowlist Move Targets
+================================================================================
+
+Add these as allowlisted Move call targets for TESTNET:
+
+1. 0xf5ea2b3749c65d6e56507cc35388719aadb28f9cab873696a2f8687f5c785138::predict::create_manager
+2. 0xf5ea2b3749c65d6e56507cc35388719aadb28f9cab873696a2f8687f5c785138::predict::mint
+3. 0xf5ea2b3749c65d6e56507cc35388719aadb28f9cab873696a2f8687f5c785138::predict::redeem
+4. 0xf5ea2b3749c65d6e56507cc35388719aadb28f9cab873696a2f8687f5c785138::predict::mint_range
+5. 0xf5ea2b3749c65d6e56507cc35388719aadb28f9cab873696a2f8687f5c785138::predict::redeem_range
+6. 0xf5ea2b3749c65d6e56507cc35388719aadb28f9cab873696a2f8687f5c785138::predict_manager::deposit
+7. 0xff1c1ded545bfa37541e79cf07656769ad0158b134baf0672994da3c5c881dc1::agent_policy::create_policy
+8. 0xff1c1ded545bfa37541e79cf07656769ad0158b134baf0672994da3c5c881dc1::agent_policy::top_up
+9. 0xff1c1ded545bfa37541e79cf07656769ad0158b134baf0672994da3c5c881dc1::agent_policy::revoke
+
+================================================================================
+PACKAGE IDS (For Reference)
+================================================================================
+
+PREDICT_PACKAGE_ID=0xf5ea2b3749c65d6e56507cc35388719aadb28f9cab873696a2f8687f5c785138
+AGENT_POLICY_PACKAGE_ID=0xff1c1ded545bfa37541e79cf07656769ad0158b134baf0672994da3c5c881dc1
+
+================================================================================
+STEP 4: Verify Changes
+================================================================================
+
+1. Save/confirm all changes in Enoki Portal
+2. Wait a few seconds for changes to propagate
+3. Go back to the app and try signing in again
+4. Onboarding should now work ✓
+
+================================================================================
+ADDITIONAL SETUP (If Onboarding Still Fails)
+================================================================================
+
+If onboarding still fails with "Funding your account…" step, you also need to:
+
+HOT_WALLET_ADDRESS: 0xe348c963f29c87c8b1ae6e6485a9b7ecbe7ce895be2c99827ba8ff3b0a73f072
+  → Fund with:
+     - dUSDC: at least 1000 (for 100-dUSDC grants to 10+ users)
+     - SUI: gas for transactions (~0.1 SUI)
+  → Faucet: https://tally.so/r/Xx102L
+
+After funding, re-run onboarding flow in the app.
+
+================================================================================
