@@ -15,6 +15,7 @@ export interface Deps {
   redis: Redis;
   sessions: SessionStore;
   hotWallet?: Ed25519Keypair;
+  faucetWallet?: Ed25519Keypair; // dev faucet funder (SUI + dUSDC), testnet-only
 }
 
 export function buildDeps(cfg: BotConfig): Deps {
@@ -36,5 +37,8 @@ export function buildDeps(cfg: BotConfig): Deps {
   const hotWallet = cfg.hotWalletPrivateKey
     ? Ed25519Keypair.fromSecretKey(decodeSuiPrivateKey(cfg.hotWalletPrivateKey).secretKey)
     : undefined;
-  return { cfg, sui, predict, enoki, redis, sessions, hotWallet };
+  const faucetWallet = cfg.faucetPrivateKey
+    ? Ed25519Keypair.fromSecretKey(decodeSuiPrivateKey(cfg.faucetPrivateKey).secretKey)
+    : undefined;
+  return { cfg, sui, predict, enoki, redis, sessions, hotWallet, faucetWallet };
 }

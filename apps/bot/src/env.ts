@@ -15,6 +15,19 @@ const botSchema = z.object({
     (v) => (v === '' ? undefined : v),
     z.string().startsWith('suiprivkey1').optional(),
   ),
+  // Dev faucet funder (SUI + dUSDC). Falls back to DEV_PRIVATE_KEY so the /faucet
+  // command works without extra config. Testnet-only convenience; never set in prod.
+  FAUCET_PRIVATE_KEY: z.preprocess(
+    (v) => (v === '' ? undefined : v),
+    z.string().startsWith('suiprivkey1').optional(),
+  ),
+  DEV_PRIVATE_KEY: z.preprocess(
+    (v) => (v === '' ? undefined : v),
+    z.string().startsWith('suiprivkey1').optional(),
+  ),
+  // AI assistant (free-text + voice → trade). Optional: when unset, the bot still
+  // runs but the natural-language/voice flow replies that AI isn't configured.
+  OPENAI_API_KEY: z.preprocess((v) => (v === '' ? undefined : v), z.string().optional()),
   API_PORT: z.coerce.number().default(8787),
 });
 
@@ -25,6 +38,8 @@ export interface BotConfig {
   redisUrl: string;
   enokiPrivateKey: string;
   hotWalletPrivateKey?: string;
+  faucetPrivateKey?: string;
+  openaiApiKey?: string;
   apiPort: number;
 }
 
@@ -43,6 +58,8 @@ export function loadBotConfig(env: NodeJS.ProcessEnv = process.env): BotConfig {
     redisUrl: c.REDIS_URL,
     enokiPrivateKey: c.ENOKI_PRIVATE_KEY,
     hotWalletPrivateKey: c.HOT_WALLET_PRIVATE_KEY,
+    faucetPrivateKey: c.FAUCET_PRIVATE_KEY ?? c.DEV_PRIVATE_KEY,
+    openaiApiKey: c.OPENAI_API_KEY,
     apiPort: c.API_PORT,
   };
 }

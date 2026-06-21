@@ -29,28 +29,71 @@ export interface ZkSession {
 }
 
 function enoki(): EnokiClient {
+  console.log('[zklogin] enoki() - apiKey:', publicConfig.enokiPublicKey?.slice(0, 15) + '...');
+  if (!publicConfig.enokiPublicKey) {
+    console.error('[zklogin] ERROR: enokiPublicKey is empty!');
+  }
   return new EnokiClient({ apiKey: publicConfig.enokiPublicKey });
+}
+
+/**
+ * zkLogin state is kept in localStorage (shared across tabs / Telegram webviews of
+ * the same origin), NOT sessionStorage (per-tab) — otherwise the trade/pay screen
+ * opened in a fresh webview can't see the session and demands a re-sign-in.
+ */
+const store = (): Storage => window.localStorage;
+
+/**
+ * One-time migration: earlier builds stored the session in sessionStorage. Copy any
+ * value from there into localStorage so an already-signed-in user isn't forced to
+ * re-authenticate after this change.
+ */
+function migrated(key: string): string | null {
+  const cur = store().getItem(key);
+  if (cur) return cur;
+  try {
+    const old = window.sessionStorage.getItem(key);
+    if (old) {
+      store().setItem(key, old);
+      return old;
+    }
+  } catch {
+    /* sessionStorage may be unavailable; ignore */
+  }
+  return null;
 }
 
 /** Persist/restore the ephemeral keypair across the OAuth redirect. */
 function saveEphemeral(kp: Ed25519Keypair): void {
-  sessionStorage.setItem(EPHEMERAL_KEY, kp.getSecretKey());
+  store().setItem(EPHEMERAL_KEY, kp.getSecretKey());
 }
 export function loadEphemeral(): Ed25519Keypair | null {
-  const sk = sessionStorage.getItem(EPHEMERAL_KEY);
+  const sk = migrated(EPHEMERAL_KEY);
   return sk ? Ed25519Keypair.fromSecretKey(sk) : null;
 }
 
 export function getZkSession(): ZkSession | null {
-  const v = sessionStorage.getItem(ZK_SESSION);
+  const v = migrated(ZK_SESSION);
   return v ? (JSON.parse(v) as ZkSession) : null;
 }
 function saveZkSession(s: ZkSession): void {
-  sessionStorage.setItem(ZK_SESSION, JSON.stringify(s));
+  store().setItem(ZK_SESSION, JSON.stringify(s));
 }
+/** Full client-side sign-out: wipe every auth artifact from BOTH storages. */
 export function clearZk(): void {
-  sessionStorage.removeItem(EPHEMERAL_KEY);
-  sessionStorage.removeItem(ZK_SESSION);
+  const keys = [EPHEMERAL_KEY, ZK_SESSION, 'nanawise.nonce', 'nanawise.managerId', 'oauth-state'];
+  for (const k of keys) {
+    try {
+      window.localStorage.removeItem(k);
+    } catch {
+      /* ignore */
+    }
+    try {
+      window.sessionStorage.removeItem(k);
+    } catch {
+      /* ignore */
+    }
+  }
 }
 
 /**
@@ -61,11 +104,13 @@ export function clearZk(): void {
 export async function beginLogin(state: string): Promise<string> {
   const kp = new Ed25519Keypair();
   saveEphemeral(kp);
+  const pubKey = kp.getPublicKey();
+  console.log('[zklogin] beginLogin - network:', publicConfig.network);
   const { nonce, randomness, maxEpoch } = await enoki().createZkLoginNonce({
     network: publicConfig.network,
-    ephemeralPublicKey: kp.getPublicKey(),
+    ephemeralPublicKey: pubKey,
   });
-  sessionStorage.setItem('nanawise.nonce', JSON.stringify({ randomness, maxEpoch, state }));
+  store().setItem('nanawise.nonce', JSON.stringify({ randomness, maxEpoch, state }));
 
   const params = new URLSearchParams({
     client_id: publicConfig.googleClientId,
@@ -82,7 +127,7 @@ export async function beginLogin(state: string): Promise<string> {
 export async function completeLogin(jwt: string): Promise<ZkSession> {
   const kp = loadEphemeral();
   if (!kp) throw new Error('ephemeral key missing — restart sign-in');
-  const meta = JSON.parse(sessionStorage.getItem('nanawise.nonce') ?? '{}') as {
+  const meta = JSON.parse(store().getItem('nanawise.nonce') ?? '{}') as {
     randomness?: string;
     maxEpoch?: number;
   };

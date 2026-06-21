@@ -13,13 +13,28 @@ import { startSettlementWorker } from './settlement-worker.js';
  */
 async function main() {
   const cfg = loadBotConfig();
+  console.log('[bot] loaded config, telegram token:', cfg.telegramBotToken.slice(0, 10) + '...');
+
   const deps = buildDeps(cfg);
+  console.log('[bot] built dependencies');
+
   const bot = buildBot(deps);
+  console.log('[bot] built bot');
+
   startApiServer(deps, bot);
+  console.log('[bot] started API server');
+
   startSettlementWorker(deps, bot);
   startCopyWorker(deps, bot);
+
   console.log('[bot] starting (long polling)…');
-  await bot.start();
+  try {
+    await bot.start();
+    console.log('[bot] bot.start() completed - this should not log if polling continues');
+  } catch (err) {
+    console.error('[bot] bot.start() threw error:', err);
+    throw err;
+  }
 }
 
 main().catch((e) => {

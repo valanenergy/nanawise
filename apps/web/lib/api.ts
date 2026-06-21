@@ -33,6 +33,14 @@ export function startOAuth(telegramId?: string) {
   return post<{ state: string }>('/api/oauth/start', { telegramId });
 }
 
+/** Resolve the user's PredictManager id from the backend (DB), keyed by address. */
+export async function lookupManager(address: string): Promise<string | null> {
+  const res = await fetch(`${publicConfig.apiBase}/api/manager?address=${encodeURIComponent(address)}`);
+  if (!res.ok) return null;
+  const { managerId } = (await res.json()) as { managerId: string | null };
+  return managerId;
+}
+
 export function completeOnboard(args: { state: string; jwt: string; managerId?: string }) {
   return post<{ ok: boolean; funding?: { digest?: string; skipped?: string } }>(
     '/api/onboard/complete',

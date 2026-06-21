@@ -13,20 +13,30 @@ import { renderMarket, timeToExpiry } from './format.js';
 
 const trunc = (a: string): string => `${a.slice(0, 6)}…${a.slice(-4)}`;
 
-/** Pick the nearest ACTIVE BTC oracle for quick replies (cached briefly in Redis). */
-async function activeBtcOracle(deps: Deps) {
+// Don't trade an oracle that's about to settle: near expiry the prob curve is a near
+// step-function, so any off-ATM strike prices at ~1%/~99% and the mint reverts with
+// EAskPriceOutOfBounds. Require a real trading window so a band of strikes is mintable.
+const MIN_EXPIRY_MS = 15 * 60 * 1000;
+
+/** Pick the soonest ACTIVE BTC oracle with enough time left to actually trade. */
+export async function activeBtcOracle(deps: Deps) {
+  const now = Date.now();
   const cached = await deps.redis.get('oracle:active');
   if (cached) {
     const { oracleId } = JSON.parse(cached) as { oracleId: string };
     const st = await deps.predict.getOracleState(oracleId);
-    if (st.status === OracleStatus.ACTIVE) return st;
+    if (st.status === OracleStatus.ACTIVE && st.expiryMs - now > MIN_EXPIRY_MS) return st;
   }
-  const now = Date.now();
   const oracles = await deps.predict.getOracles();
   const btc = oracles
     .filter((o) => /btc/i.test(o.underlyingAsset ?? '') && (o.expiryMs ?? 0) > now)
     .sort((a, b) => (a.expiryMs ?? 0) - (b.expiryMs ?? 0));
-  for (const o of btc.slice(0, 8)) {
+  // Prefer oracles with a real window; fall back to soonest active if none qualify.
+  const ordered = [
+    ...btc.filter((o) => (o.expiryMs ?? 0) > now + MIN_EXPIRY_MS),
+    ...btc.filter((o) => (o.expiryMs ?? 0) <= now + MIN_EXPIRY_MS),
+  ];
+  for (const o of ordered.slice(0, 10)) {
     const st = await deps.predict.getOracleState(o.oracleId);
     if (st.status === OracleStatus.ACTIVE) {
       await deps.redis.set(
@@ -63,8 +73,17 @@ export function registerTradingCommands(bot: Bot, deps: Deps): void {
     }
     const sender = (await deps.sessions.getSession(ctx.from?.id ?? 0))?.suiAddress ?? `0x${'0'.repeat(64)}`;
     const text = await renderMarket(deps.predict, o, sender);
+    // One-tap quick trades at the at-the-money strike ($1 each) — no typing needed.
+    const spot = Number(o.spot1e9) / 1e9;
+    const atm1e9 = BigInt(Math.round(spot / 25) * 25) * 1_000_000_000n;
+    const link = (isUp: boolean) =>
+      `${deps.cfg.miniAppUrl}/miniapp/trade?action=mint&oracleId=${o.oracleId}` +
+      `&expiry=${o.expiryMs}&strike=${atm1e9}&isUp=${isUp}&quantity=1000000`;
     const kb = new InlineKeyboard()
-      .webApp('Trade →', `${deps.cfg.miniAppUrl}/miniapp/trade?oracleId=${o.oracleId}`)
+      .webApp('📈 UP $1', link(true))
+      .webApp('📉 DOWN $1', link(false))
+      .row()
+      .webApp('Custom trade →', `${deps.cfg.miniAppUrl}/miniapp/trade?oracleId=${o.oracleId}`)
       .text('🔄 Refresh', 'market:refresh');
     await ctx.reply(text, { parse_mode: 'Markdown', reply_markup: kb });
   });
@@ -103,6 +122,21 @@ export function registerTradingCommands(bot: Bot, deps: Deps): void {
           { oracleId: o.oracleId, expiry: BigInt(o.expiryMs), strike: strike1e9, isUp: dir === 'up', quantity },
           sess.suiAddress,
         );
+        // Mint enforces ask ∈ [1%, 99%] (EAskPriceOutOfBounds). Preview prices outside
+        // that, so reject here with a near-spot suggestion instead of handing over a
+        // Confirm button that will revert on-chain.
+        if (pv.impliedProb <= 0.01 || pv.impliedProb >= 0.99) {
+          const spot = Number(o.spot1e9) / 1e9;
+          const atm = Math.round(spot / 25) * 25;
+          await ctx.reply(
+            [
+              `$${strikeStr} is outside the tradeable range (price ~${(pv.impliedProb * 100).toFixed(0)}%).`,
+              `BTC is ~$${spot.toFixed(0)} now — pick a strike near it.`,
+              `Try: /${dir} ${atm} ${amountStr}`,
+            ].join('\n'),
+          );
+          return;
+        }
         const kb = tradeButton(deps, `Confirm & sign — pay ${formatUsdc(pv.cost)} dUSDC`, {
           action: 'mint',
           oracleId: o.oracleId,

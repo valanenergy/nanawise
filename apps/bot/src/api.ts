@@ -40,6 +40,11 @@ export function startApiServer(deps: Deps, bot: Bot) {
     `${deps.cfg.predict.predictPackageId}::predict::redeem_range`,
     `${deps.cfg.predict.predictPackageId}::predict::supply`,
     `${deps.cfg.predict.predictPackageId}::predict::withdraw`,
+    // Key-constructor helpers invoked inside the mint/redeem PTBs (predict-sdk
+    // marketKeyArg/rangeKeyArg). Enoki validates EVERY move call in the PTB, so
+    // these must be allow-listed too or the whole sponsored tx is rejected.
+    `${deps.cfg.predict.predictPackageId}::market_key::new`,
+    `${deps.cfg.predict.predictPackageId}::range_key::new`,
     // agent policy create/revoke (owner-signed via Mini App) — Phase 4
     ...(deps.cfg.predict.agentPolicyPackageId
       ? [
@@ -136,24 +141,35 @@ export function startApiServer(deps: Deps, bot: Bot) {
       );
     }
 
+    // Manager lookup by zkLogin address (robust when the Mini App's sessionStorage
+    // cache is empty, e.g. a fresh Telegram webview). Reads the DB row written at
+    // onboard/complete. Address-keyed and read-only, so safe to expose.
+    if (req.method === 'GET' && url.pathname === '/api/manager') {
+      const address = url.searchParams.get('address') ?? '';
+      if (!address) return json(res, 400, { error: 'address required' });
+      const u = await prisma.user.findFirst({
+        where: { suiAddress: address, managerId: { not: null } },
+        select: { managerId: true },
+      });
+      return json(res, 200, { managerId: u?.managerId ?? null });
+    }
+
     if (route === 'POST /api/onboard/prepare') {
       const body = await readJson(req);
+      const jwtStr = String(body.jwt ?? '');
       // H2: derive the address authoritatively from the zkLogin JWT.
-      const identity = await getZkLoginIdentity(deps.enoki, String(body.jwt ?? ''));
+      const identity = await getZkLoginIdentity(deps.enoki, jwtStr);
       const suiAddress = identity.address;
 
       // Pre-register the user in the database so they can call /api/sponsor.
-      // Use a temporary negative telegramId derived from the suiAddress to ensure uniqueness.
-      // This row will be upserted again in onboard/complete with the real telegramId.
-      // We hash the suiAddress to create a stable, deterministic ID.
-      const hash = createHmac('sha256', 'temp-user-key');
-      hash.update(suiAddress);
-      const hashBigInt = BigInt('0x' + hash.digest('hex').slice(0, 16));
-      const tempTelegramId = -(hashBigInt % BigInt('9223372036854775807')); // negative, fits in i64
+      // Uses a temporary negative telegramId derived from the suiAddress (see
+      // tempTelegramIdFor). This row is upserted again in onboard/complete with
+      // the real telegramId once the OAuth state resolves it.
+      const tempTelegramId = tempTelegramIdFor(suiAddress);
 
       await prisma.user.upsert({
-        where: { telegramId: BigInt(tempTelegramId) },
-        create: { telegramId: BigInt(tempTelegramId), suiAddress },
+        where: { telegramId: tempTelegramId },
+        create: { telegramId: tempTelegramId, suiAddress },
         update: { suiAddress },
       });
 
@@ -184,10 +200,6 @@ export function startApiServer(deps: Deps, bot: Bot) {
 
     if (route === 'POST /api/onboard/complete') {
       const body = await readJson(req); // { state, jwt?, suiAddress?, managerId }
-      const st = await deps.sessions.takeOAuthState(String(body.state ?? ''));
-      if (!st) return json(res, 400, { error: 'invalid or expired state' });
-
-      const telegramId = BigInt(st.telegramId);
 
       // H2: derive the address authoritatively from the zkLogin JWT when present;
       // only fall back to the client-supplied address in dev (no JWT).
@@ -201,6 +213,17 @@ export function startApiServer(deps: Deps, bot: Bot) {
       } else {
         return json(res, 400, { error: 'jwt or suiAddress required' });
       }
+
+      // The OAuth state maps to the real Telegram ID, but it is a one-time,
+      // short-lived token. It can be absent (user re-navigated to /miniapp/onboard
+      // without a fresh state) or expired (the sign-in → ZKP → on-chain create flow
+      // ran past its TTL). In that case fall back to the same deterministic temp
+      // telegramId that /prepare registered, keyed off the JWT-derived address, so
+      // onboarding still completes self-custodially. A real Telegram user with a
+      // valid state still gets linked to their actual account.
+      const st = await deps.sessions.takeOAuthState(String(body.state ?? ''));
+      if (!st) console.warn('[onboard] OAuth state missing/expired — using temp telegramId from JWT');
+      const telegramId = st ? BigInt(st.telegramId) : tempTelegramIdFor(suiAddress);
 
       const managerId = body.managerId ? String(body.managerId) : undefined;
       // Cross-check manager ownership on-chain when resolvable (tolerate indexing lag).
@@ -226,7 +249,7 @@ export function startApiServer(deps: Deps, bot: Bot) {
       const epochExpiryMs = Date.now() + 48 * 3600 * 1000; // ~maxEpoch window
       await deps.sessions.setSession(
         Number(telegramId),
-        { suiAddress, managerId, maxEpoch: st.maxEpoch ?? 0, epochExpiryMs },
+        { suiAddress, managerId, maxEpoch: st?.maxEpoch ?? 0, epochExpiryMs },
         48 * 3600,
       );
 
@@ -271,6 +294,18 @@ function verifyTwilioSignature(req: IncomingMessage, url: URL, form: Record<stri
   const a = Buffer.from(sig);
   const b = Buffer.from(expected);
   return a.length === b.length && timingSafeEqual(a, b);
+}
+
+/**
+ * Deterministic temporary telegramId for a self-custodial (web/no-Telegram) user,
+ * derived from the zkLogin Sui address. Negative so it never collides with a real
+ * Telegram user id, and stable so /prepare and /complete agree on the same row.
+ */
+function tempTelegramIdFor(suiAddress: string): bigint {
+  const hash = createHmac('sha256', 'temp-user-key');
+  hash.update(suiAddress);
+  const hashBigInt = BigInt('0x' + hash.digest('hex').slice(0, 16));
+  return -(hashBigInt % BigInt('9223372036854775807')); // negative, fits in i64
 }
 
 function json(res: ServerResponse, status: number, body: unknown): void {

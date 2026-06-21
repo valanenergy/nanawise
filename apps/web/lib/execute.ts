@@ -22,6 +22,11 @@ export async function signAndExecuteSponsored(tx: Transaction): Promise<string> 
   if (!session) throw new Error('Not signed in. Please sign in with Google again.');
   if (!kp) throw new Error('Session key missing. Please sign in again.');
 
+  // Sender must be set BEFORE build: coinWithBalance (used by deposit) resolves the
+  // user's coins by querying the sender's owned objects during build. Without it the
+  // build throws "Sender must be set to resolve CoinWithBalance". The sender isn't
+  // serialized into the onlyTransactionKind bytes — the sponsor sets gas separately.
+  tx.setSender(session.address);
   const sui = new SuiJsonRpcClient({ url: publicConfig.rpcUrl, network: publicConfig.network });
   const kindBytes = toBase64(await tx.build({ client: sui, onlyTransactionKind: true }));
 
