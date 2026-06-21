@@ -29,8 +29,8 @@ export function executeSponsored(digest: string, signature: string) {
   return post<{ digest: string }>('/api/sponsor/execute', { digest, signature });
 }
 
-export function startOAuth() {
-  return post<{ state: string }>('/api/oauth/start', {});
+export function startOAuth(telegramId?: string) {
+  return post<{ state: string }>('/api/oauth/start', { telegramId });
 }
 
 export function completeOnboard(args: { state: string; jwt: string; managerId?: string }) {

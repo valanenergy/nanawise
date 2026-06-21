@@ -76,7 +76,7 @@ function Onboard() {
         <div className="card">
           <div className="big" style={{ color: 'var(--up)' }}>You&apos;re all set 🎉</div>
           <p className="muted">
-            Your self-custodial wallet is ready and funded with 100 dUSDC. Head back to Telegram and
+            Your self-custodial wallet is ready and funded with 10 dUSDC. Head back to Telegram and
             try <b>/market</b>.
           </p>
           {managerId && (

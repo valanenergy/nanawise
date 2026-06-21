@@ -15,8 +15,26 @@ function Home() {
     setBusy(true);
     setErr(null);
     try {
+      // Try to get Telegram user ID if running in a Telegram Web App
+      let telegramId: string | undefined;
+      if (typeof window !== 'undefined') {
+        try {
+          const tg = (window as unknown as { Telegram?: { WebApp?: { initData?: string } } }).Telegram?.WebApp;
+          if (tg?.initData) {
+            const initData = new URLSearchParams(tg.initData);
+            const userJson = initData.get('user');
+            if (userJson) {
+              const user = JSON.parse(userJson);
+              telegramId = String(user.id);
+            }
+          }
+        } catch (e) {
+          // Ignore errors parsing Telegram data
+        }
+      }
+
       // Initialize OAuth state on backend and get a valid state value
-      const { state } = await startOAuth();
+      const { state } = await startOAuth(telegramId);
       sessionStorage.setItem('oauth-state', state);
       const url = await beginLogin(state);
       window.location.href = url;

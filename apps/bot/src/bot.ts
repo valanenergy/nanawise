@@ -100,7 +100,7 @@ export async function notifyOnboarded(
     "✅ You're in! Your self-custodial wallet is ready.",
     `Address: \`${trunc(address)}\``,
     managerId ? `Manager: \`${trunc(managerId)}\`` : '',
-    fundingDigest ? `Funded 100 dUSDC — tx \`${fundingDigest.slice(0, 10)}…\`` : '',
+    fundingDigest ? `Funded 10 dUSDC — tx \`${fundingDigest.slice(0, 10)}…\`` : '',
     '',
     'Send /help to see what you can do.',
   ].filter(Boolean);

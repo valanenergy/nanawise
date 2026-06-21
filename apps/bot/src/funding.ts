@@ -2,8 +2,8 @@ import { prisma } from '@nanawise/db';
 import { coinWithBalance, Transaction } from '@mysten/sui/transactions';
 import type { Deps } from './clients.js';
 
-/** Onboarding grant: 100 dUSDC (6 decimals). */
-export const FUND_AMOUNT = 100_000_000n;
+/** Onboarding grant: 10 dUSDC (6 decimals). */
+export const FUND_AMOUNT = 10_000_000n;
 
 /**
  * Hot-wallet onboarding funding.

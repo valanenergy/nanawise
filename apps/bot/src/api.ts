@@ -89,8 +89,10 @@ export function startApiServer(deps: Deps, bot: Bot) {
       // Initialize OAuth flow: generate a random state, store it in Redis, return to frontend.
       // The frontend will use this state when initiating Google sign-in, Google will echo it back,
       // and we'll use it to look up the user's telegramId in /api/onboard/complete.
+      const body = await readJson(req);
       const state = randomBytes(16).toString('hex');
-      const telegramId = String(Math.floor(Math.random() * 9007199254740991)); // temp ID for web users
+      // Use the real Telegram ID if provided (from Telegram Web App), otherwise generate a temp ID for web users
+      const telegramId = body.telegramId || String(Math.floor(Math.random() * 9007199254740991));
       await deps.sessions.putOAuthState(state, { telegramId }, 300); // 5-min TTL
       return json(res, 200, { state });
     }
