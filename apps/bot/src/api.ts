@@ -1,4 +1,4 @@
-import { createHmac, timingSafeEqual } from 'node:crypto';
+import { createHmac, timingSafeEqual, randomBytes } from 'node:crypto';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import { prisma } from '@nanawise/db';
 import {
@@ -89,7 +89,7 @@ export function startApiServer(deps: Deps, bot: Bot) {
       // Initialize OAuth flow: generate a random state, store it in Redis, return to frontend.
       // The frontend will use this state when initiating Google sign-in, Google will echo it back,
       // and we'll use it to look up the user's telegramId in /api/onboard/complete.
-      const state = require('crypto').randomBytes(16).toString('hex');
+      const state = randomBytes(16).toString('hex');
       const telegramId = String(Math.floor(Math.random() * 9007199254740991)); // temp ID for web users
       await deps.sessions.putOAuthState(state, { telegramId }, 300); // 5-min TTL
       return json(res, 200, { state });
