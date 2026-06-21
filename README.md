@@ -60,9 +60,9 @@ for a fresh link or run locally, see [Run it](#run-it).)*
 
 | Requirement | Status |
 |---|---|
-| **Integrate DeepBook Predict on testnet** | ✅ Full binary **and** range lifecycle via `predict-testnet-4-16` (see [Integration](#how-we-integrate-deepbook-predict)) |
-| **Works end-to-end (full flow tested)** | ✅ Google → zkLogin → `create_manager` → `deposit` → `mint` → `redeem`, all sponsored, from chat/voice/buttons or the Mini App |
-| **Simulation for vault strategies** | ➕ Live **PLP vault** (`supply`/`withdraw`) with on-chain evidence below |
+| **Integrate DeepBook Predict on testnet** | Full binary **and** range lifecycle via `predict-testnet-4-16` (see [Integration](#how-we-integrate-deepbook-predict)) |
+| **Works end-to-end (full flow tested)** | Google → zkLogin → `create_manager` → `deposit` → `mint` → `redeem`, all sponsored, from chat/voice/buttons or the Mini App |
+| **Simulation for vault strategies** | Live **PLP vault** (`supply`/`withdraw`) with on-chain evidence below |
 
 ---
 
